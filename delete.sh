@@ -33,32 +33,30 @@ do
   config[$key]=$value
 done < generate.conf
 
-# Loop through the domain suffixes
-for i in $(seq -f "%03g" ${config[DB_SUFFIX_START]} ${config[DB_SUFFIX_END]})
-do
-  # if variable i length is less than domain end length then add 0 to the start of i
-  # example if DB_SUFFIX_END is 10, then 1 will be 01, and if 1000 then 0001
-  if [ ${#i} -lt ${#config[DB_SUFFIX_END]} ]; then
-    i="0$i"
-  fi
+# Read content from file on data folder
+for file in data/nim_kelas_*.txt; do
+  # Loop through the file
+  while IFS= read -r line; do
+    nim=$(echo $line | cut -d ' ' -f 1)
 
-  # Drop the database
-  mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "DROP DATABASE IF EXISTS ${config[DB_PREFIX]}$i${config[SPACER]}${config[DB_NAME]};"
+    # Drop the database
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "DROP DATABASE IF EXISTS $nim${config[SPACER]}${config[DB_NAME]};"
 
-  # Print the database name
-  echo "Database ${config[DB_PREFIX]}$i${config[SPACER]}${config[DB_NAME]} dropped"
+    # Print the database name
+    echo "Database $nim${config[SPACER]}${config[DB_NAME]} dropped"
 
-  # Drop the privileges
-  mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "REVOKE ALL PRIVILEGES, GRANT OPTION FROM '${config[DB_PREFIX]}$i'@'localhost';"
+    # Drop the privileges
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "REVOKE ALL PRIVILEGES, GRANT OPTION FROM '$nim'@'localhost';"
 
-  # Print the privileges
-  echo "Privileges revoked for ${config[DB_PREFIX]}$i"
+    # Print the privileges
+    echo "Privileges revoked for $nim"
 
-  # Drop the user
-  mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "DROP USER IF EXISTS '${config[DB_PREFIX]}$i'@'localhost';"
+    # Drop the user
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "DROP USER IF EXISTS '$nim'@'localhost';"
 
-  # Print the user name
-  echo "User ${config[DB_PREFIX]}$i dropped"
+    # Print the user name
+    echo "User $nim dropped"
+  done < $file
 done
 
 # Print the completion message

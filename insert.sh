@@ -10,17 +10,13 @@ config=(
   [DB_USERNAME]="root"
   [DB_PASSWORD]=""
   [DB_NAME]="test"
-  [DB_PREFIX]="2311102"
-  [DB_SUFFIX_START]="001"
-  [DB_SUFFIX_END]="002"
   [SPACER]="_"
 )
 
 # Read the configuration file and set the values from generate.conf
 # If the configuration file is not found, use the default values
 # If the configuration file is found, override the default values
-while IFS='=' read -r key value;
-do
+while IFS='=' read -r key value; do
   # If the line is empty, or if key and value is empty, then skip
   if [ -z "$key" ] || [ -z "$value" ]; then
     continue
@@ -33,32 +29,30 @@ do
   config[$key]=$value
 done < generate.conf
 
-# Loop each data from DB_SUFFIX_START to DB_SUFFIX_END
-for i in $(seq -f "%03g" ${config[DB_SUFFIX_START]} ${config[DB_SUFFIX_END]})
-do
-  # if variable i length is less than domain end length then add 0 to the start of i
-  # example if DB_SUFFIX_END is 10, then 1 will be 01, and if 1000 then 0001
-  if [ ${#i} -lt ${#config[DB_SUFFIX_END]} ]; then
-    i="0$i"
-  fi
+# Read content from file on data folder
+for file in data/nim_kelas_*.txt; do
+  # Loop through the file
+  while IFS= read -r line; do
+    nim=$(echo $line | cut -d ' ' -f 1)
 
-  # Create the user
-  mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "CREATE USER IF NOT EXISTS '${config[DB_PREFIX]}$i'@'localhost' IDENTIFIED BY '${config[DB_PREFIX]}$i';"
+    # Create the user
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "CREATE USER IF NOT EXISTS '$nim'@'localhost' IDENTIFIED BY '$nim';"
 
-  # Print the user name
-  echo "User ${config[DB_PREFIX]}$i created"
+    # Print the user name
+    echo "User $nim created"
 
-  # Grant privileges
-  mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "GRANT ALL PRIVILEGES ON ${config[DB_PREFIX]}$i${config[SPACER]}.* TO '${config[DB_PREFIX]}$i'@'localhost';"
+    # Grant privileges
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "GRANT ALL PRIVILEGES ON $nim${config[SPACER]}.* TO '$nim'@'localhost';"
 
-  # Print the privileges
-  echo "Privileges granted for ${config[DB_PREFIX]}$i${config[SPACER]}"
+    # Print the privileges
+    echo "Privileges granted for $nim${config[SPACER]}"
 
-  # Create the database
-  mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "CREATE DATABASE IF NOT EXISTS ${config[DB_PREFIX]}$i${config[SPACER]}${config[DB_NAME]};"
+    # Create the database
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "CREATE DATABASE IF NOT EXISTS $nim${config[SPACER]}${config[DB_NAME]};"
 
-  # Print the database name
-  echo "Database ${config[DB_PREFIX]}$i${config[SPACER]}${config[DB_NAME]} created"
+    # Print the database name
+    echo "Database $nim${config[SPACER]}${config[DB_NAME]} created"
+  done < $file
 done
 
 # Print the completion message
