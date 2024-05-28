@@ -10,9 +10,6 @@ config=(
   [DB_USERNAME]="root"
   [DB_PASSWORD]=""
   [DB_NAME]="test"
-  [DB_PREFIX]="2311102"
-  [DB_SUFFIX_START]="001"
-  [DB_SUFFIX_END]="010"
   [SPACER]="_"
 )
 
