@@ -10,8 +10,15 @@ config=(
   [DB_USERNAME]="root"
   [DB_PASSWORD]=""
   [DB_NAME]="test"
+  [USER_HOST]="localhost"
   [SPACER]="_"
 )
+
+# Check if there is any file exists with the pattern
+if [ ! -f data/nim_kelas_*.txt ]; then
+  echo "No file found with the pattern data/nim_kelas_*.txt"
+  exit 1
+fi
 
 # Read the configuration file and set the values from generated.conf
 # If the configuration file is not found, use the default values
@@ -43,16 +50,16 @@ for file in data/nim_kelas_*.txt; do
     echo "Database $nim${config[SPACER]}${config[DB_NAME]} dropped"
 
     # Drop the privileges
-    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "REVOKE ALL PRIVILEGES, GRANT OPTION FROM '$nim'@'localhost';"
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "REVOKE ALL PRIVILEGES, GRANT OPTION FROM '$nim'@'${config[USER_HOST]}';"
 
     # Print the privileges
-    echo "Privileges revoked for $nim"
+    echo "Privileges revoked for $nim on host ${config[USER_HOST]}"
 
     # Drop the user
-    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "DROP USER IF EXISTS '$nim'@'localhost';"
+    mysql -u "${config[DB_USERNAME]}" -p"${config[DB_PASSWORD]}" -e "DROP USER IF EXISTS '$nim'@'${config[USER_HOST]}';"
 
     # Print the user name
-    echo "User $nim dropped"
+    echo "User $nim dropped for host ${config[USER_HOST]}"
   done < $file
 done
 
