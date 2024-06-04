@@ -4,6 +4,9 @@
 category=$1
 
 # Make function to print the usage
+#
+# Return:
+# void
 function print_usage() {
   echo "===================================="
   echo "Argument category is required"
@@ -29,6 +32,9 @@ fi
 
 # Init variable to store file path
 file_path="data"
+
+# Init variable to store output path
+output_path="output"
 
 # Init array to store configuration
 typeset -A config
@@ -73,14 +79,30 @@ fi
 # Check if the output file is exists
 # if exists then remove the file inside the folder
 # but only remove when category is up
-if [ "$category" == "up" ] && [ -f "output/${config[TARGET_FILE]}" ]; then
-  # if the file is exists then remove the file
-  rm output/${config[TARGET_FILE]}
+if [ "$category" == "up" ] && [ -f "$output_path/${config[TARGET_FILE]}" ]; then
+  # Print the message that we are deleting the file
+  echo "Deleting file $output_path/${config[TARGET_FILE]}"
+
+  # Remove the file in try catch block
+  rm $output_path/${config[TARGET_FILE]} || {
+    echo "Failed to delete file $output_path/${config[TARGET_FILE]}"
+    exit 1
+  }
+
+  # Print the message if the file is deleted
+  echo "File $output_path/${config[TARGET_FILE]} deleted"
 fi
 
 # Make function to make output file
 # The output file will be named as the input file
 # but with value "nim | password" for each line
+#
+# Parameter:
+# $1: nim
+# $2: password
+#
+# Return:
+# void
 function make_output_file() {
   # so we will create the output file
   # based on parameter passed to this function
@@ -93,7 +115,7 @@ function make_output_file() {
   password=$2
 
   # Write the output to the file
-  echo "$nim | $password" >> output/${config[TARGET_FILE]}
+  echo "$nim | $password" >> $output_path/${config[TARGET_FILE]}
 }
 
 # Make function to generate random password
@@ -101,6 +123,12 @@ function make_output_file() {
 # for each nim, the password must be the same
 # and length of the password must be 8 characters
 # and return the password
+#
+# Parameter:
+# $1: nim
+#
+# Return:
+# string - generated password
 function generate_password() {
   # Generate the password
   password=$(echo $1 | sha256sum | base64 | head -c 8)
@@ -127,7 +155,12 @@ function generate_password() {
 }
 
 # Make function to create user, database, and grant privileges
-# On this function we will pass the nim as the parameter
+#
+# Parameter:
+# $1: nim
+#
+# Return:
+# void
 function create_user_database() {
   # Generate the password
   password=$(generate_password $1)
@@ -155,7 +188,12 @@ function create_user_database() {
 }
 
 # Make function to drop user, database, and revoke privileges
-# On this function we will pass the nim as the parameter
+#
+# Parameter:
+# $1: nim
+#
+# Return:
+# void
 function drop_user_database() {
   # Drop the database
   mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP DATABASE IF EXISTS $1${config[SPACER]}${config[DB_NAME]};"
@@ -200,4 +238,8 @@ for file in $file_path/${config[TARGET_FILE]}; do
 done
 
 # Print the completion message
-echo "All users and databases created"
+if [ "$category" == "up" ]; then
+  echo "All users and databases created"
+elif [ "$category" == "down" ]; then
+  echo "All users and databases dropped"
+fi
