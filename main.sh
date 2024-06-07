@@ -36,6 +36,9 @@ file_path="data"
 # Init variable to store output path
 output_path="output"
 
+# Init variable to store salt path
+salt_path="salt"
+
 # Init array to store configuration
 typeset -A config
 
@@ -93,6 +96,49 @@ if [ "$category" == "up" ] && [ -f "$output_path/${config[TARGET_FILE]}" ]; then
   echo "File $output_path/${config[TARGET_FILE]} deleted"
 fi
 
+declare -a word_data
+word_data_length=0
+
+# Make function to load salt folder
+# which mean 2 file will be assign to different
+# variable, for word and symbol
+#
+# Parameter:
+# $1: salt
+#
+# Return:
+# void
+function load_salt_folder() {
+  # Load the salt folder
+  local salt=$1
+
+  # Check if the salt folder is exists
+  if [ ! -d $salt ]; then
+    echo "Salt folder $salt not found"
+    exit 1
+  fi
+
+  if [ ! -f $salt_path/word.txt ]; then
+    echo "Word file on path $salt_path/word.txt not found"
+    exit 1
+  else
+    local index=0
+
+    while IFS= read -r line; do
+      word_data[$index]=$line
+      index=$((index+1))
+    done < $salt_path/word.txt
+
+    word_data_length=$index
+  fi
+}
+
+# Load the salt folder
+# only when the category is up
+if [ "$category" == "up" ]; then
+  load_salt_folder $salt_path
+fi
+
 # Make function to make output file
 # The output file will be named as the input file
 # but with value "nim | password" for each line
@@ -109,10 +155,10 @@ function make_output_file() {
   # the parameter is nim and password
 
   # Get the nim
-  nim=$1
+  local nim=$1
 
   # Get the password
-  password=$2
+  local password=$2
 
   # Write the output to the file
   echo "$nim | $password" >> $output_path/${config[TARGET_FILE]}
@@ -130,28 +176,42 @@ function make_output_file() {
 # Return:
 # string - generated password
 function generate_password() {
+  # Generate 3 random number
+  local random_number=$((100 + RANDOM % 900))
+  local number=$(echo $random_number | cut -d ' ' -f 1)
+
+  # Generate the last digit of nim
+  # and make it as the index of word_data
+  local nim_last_digit=$(echo $1 | tail -c 2)
+
+  # Generate random index
+  # to get the word from the word_data
+  local random_index=$((nim_last_digit + RANDOM % word_data_length - 1))
+
   # Generate the password
-  password=$(echo $1 | sha256sum | base64 | head -c 8)
+  local password=$(echo ${word_data[random_index]})
 
   # Check if generated password is already generated
   # using loop to check if the password is already generated
   # if the password is already generated, then generate the password again
   # until the password is unique
-  while [ -n "${generated_password[$password]}" ]; do
-    if [ "${generated_password[$password]}" != "$1" ]; then
-      # If the password is already generated
-      # then generate the password again
-      # until the password is unique
-      password=$(echo $1 | sha256sum | base64 | head -c 8)
+  while [ -n "${generated_password[$number]}" ]; do
+    if [ "${generated_password[$number]}" != "$1" ]; then
+      # If the number is already generated
+      # Increment the random number by 1
+      # until the number is unique
+      number=$number+1
+
       continue
     fi
   done
 
   # Store the generated password to the array
-  generated_password[$password]=$1
+  generated_password[$number]=$password
 
   # Return the password
-  echo $password
+  # and parse the password to the caller
+  echo "$password$number"
 }
 
 # Make function to create user, database, and grant privileges
@@ -163,7 +223,9 @@ function generate_password() {
 # void
 function create_user_database() {
   # Generate the password
-  password=$(generate_password $1)
+  local password=$(generate_password $1)
+
+  echo "Generated password for $1: $password"
 
   # Create the user
   mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "CREATE USER IF NOT EXISTS '$1'@'${config[USER_HOST]}' IDENTIFIED BY '$password';"
@@ -182,6 +244,12 @@ function create_user_database() {
 
   # Print the database name
   echo "Database $1_${config[DB_NAME]} created"
+
+  # Flush privileges
+  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
+
+  # Print the flush privileges
+  echo "Privileges flushed"
 
   # Call the function to make output file
   make_output_file $1 $password
@@ -214,28 +282,37 @@ function drop_user_database() {
   echo "User $1 dropped for host ${config[USER_HOST]}"
 }
 
-# Read content from file on data folder
-for file in $file_path/${config[TARGET_FILE]}; do
-  # Check if the file is empty
-  if [ ! -s $file ]; then
-    echo "File $file is empty"
-    continue
-  fi
-
-  # Loop through the file
-  while IFS= read -r line; do
-    nim=$(echo $line | cut -d ' ' -f 1)
-
-    # Check category data
-    # if category is up then create user and database
-    # if category is down then drop user and database
-    if [ "$category" == "up" ]; then
-      create_user_database $nim
-    elif [ "$category" == "down" ]; then
-      drop_user_database $nim
+# Make function to read file and loop through the file
+# to get the content of the file
+#
+# Return:
+# void
+function read_and_loop_file() {
+  for file in $file_path/${config[TARGET_FILE]}; do
+    # Check if the file is empty
+    if [ ! -s $file ]; then
+      echo "File $file is empty"
+      continue
     fi
-  done < $file
-done
+
+    # Loop through the file
+    while IFS= read -r line; do
+      local nim=$(echo $line | cut -d ' ' -f 1)
+
+      # Check category data
+      # if category is up then create user and database
+      # if category is down then drop user and database
+      if [ "$category" == "up" ]; then
+        create_user_database $nim
+      elif [ "$category" == "down" ]; then
+        drop_user_database $nim
+      fi
+    done < $file
+  done
+}
+
+# Call the function to read and loop the file
+read_and_loop_file
 
 # Print the completion message
 if [ "$category" == "up" ]; then
