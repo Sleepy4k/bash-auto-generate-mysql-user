@@ -225,8 +225,6 @@ function create_user_database() {
   # Generate the password
   local password=$(generate_password $1)
 
-  echo "Generated password for $1: $password"
-
   # Create the user
   mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "CREATE USER IF NOT EXISTS '$1'@'${config[USER_HOST]}' IDENTIFIED BY '$password';"
 
@@ -245,12 +243,6 @@ function create_user_database() {
   # Print the database name
   echo "Database $1_${config[DB_NAME]} created"
 
-  # Flush privileges
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
-
-  # Print the flush privileges
-  echo "Privileges flushed"
-
   # Call the function to make output file
   make_output_file $1 $password
 }
@@ -264,10 +256,10 @@ function create_user_database() {
 # void
 function drop_user_database() {
   # Drop the database
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP DATABASE IF EXISTS $1${config[SPACER]}${config[DB_NAME]};"
+  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP DATABASE IF EXISTS $1_${config[DB_NAME]};"
 
   # Print the database name
-  echo "Database $1${config[SPACER]}${config[DB_NAME]} dropped"
+  echo "Database $1_${config[DB_NAME]} dropped"
 
   # Revoke privileges
   mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "REVOKE ALL PRIVILEGES ON \`$1\_%\`.* FROM '$1'@'${config[USER_HOST]}';"
@@ -307,6 +299,12 @@ function read_and_loop_file() {
       elif [ "$category" == "down" ]; then
         drop_user_database $nim
       fi
+
+      # Flush privileges
+      mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
+
+      # Print the flush privileges
+      echo "Privileges flushed"
     done < $file
   done
 }
