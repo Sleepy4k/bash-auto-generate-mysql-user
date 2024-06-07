@@ -186,7 +186,7 @@ function generate_password() {
 
   # Generate random index
   # to get the word from the word_data
-  local random_index=$((nim_last_digit + RANDOM % word_data_length - 1))
+  local random_index=$((nim_last_digit + RANDOM % word_data_length - nim_last_digit - 1))
 
   # Generate the password
   local password=$(echo ${word_data[random_index]})
@@ -280,33 +280,31 @@ function drop_user_database() {
 # Return:
 # void
 function read_and_loop_file() {
-  for file in $file_path/${config[TARGET_FILE]}; do
-    # Check if the file is empty
-    if [ ! -s $file ]; then
-      echo "File $file is empty"
-      continue
+  # Check if the file is empty
+  if [ ! -s $file_path/${config[TARGET_FILE]} ]; then
+    echo "File $file_path/${config[TARGET_FILE]} is empty"
+    continue
+  fi
+
+  # Loop through the file
+  while IFS= read -r line; do
+    local nim=$(echo $line | cut -d ' ' -f 1)
+
+    # Check category data
+    # if category is up then create user and database
+    # if category is down then drop user and database
+    if [ "$category" == "up" ]; then
+      create_user_database $nim
+    elif [ "$category" == "down" ]; then
+      drop_user_database $nim
     fi
 
-    # Loop through the file
-    while IFS= read -r line; do
-      local nim=$(echo $line | cut -d ' ' -f 1)
+    # Flush privileges
+    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
 
-      # Check category data
-      # if category is up then create user and database
-      # if category is down then drop user and database
-      if [ "$category" == "up" ]; then
-        create_user_database $nim
-      elif [ "$category" == "down" ]; then
-        drop_user_database $nim
-      fi
-
-      # Flush privileges
-      mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
-
-      # Print the flush privileges
-      echo "Privileges flushed"
-    done < $file
-  done
+    # Print the flush privileges
+    echo "Privileges flushed"
+  done < $file_path/${config[TARGET_FILE]}
 }
 
 # Call the function to read and loop the file
