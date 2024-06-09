@@ -121,16 +121,16 @@ function load_salt_folder() {
   if [ ! -f $salt_path/word.txt ]; then
     echo "Word file on path $salt_path/word.txt not found"
     exit 1
-  else
-    local index=0
-
-    while IFS= read -r line; do
-      word_data[$index]=$line
-      index=$((index+1))
-    done < $salt_path/word.txt
-
-    word_data_length=$index
   fi
+
+  local index=0
+
+  while IFS= read -r line; do
+    word_data[$index]=$line
+    index=$((index+1))
+  done < $salt_path/word.txt
+
+  word_data_length=$index
 }
 
 # Load the salt folder
@@ -225,20 +225,41 @@ function create_user_database() {
   # Generate the password
   local password=$(generate_password $1)
 
-  # Create the user
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "CREATE USER IF NOT EXISTS '$1'@'${config[USER_HOST]}' IDENTIFIED BY '$password';"
+  # If database password is empty
+  # then run mysql command without password
+  if [ -z "${config[DB_PASSWORD]}" ]; then
+    # Create the user
+    mysql -u ${config[DB_USERNAME]} -e "CREATE USER IF NOT EXISTS '$1'@'${config[USER_HOST]}' IDENTIFIED BY '$password';"
+  else 
+    # Create the user
+    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "CREATE USER IF NOT EXISTS '$1'@'${config[USER_HOST]}' IDENTIFIED BY '$password';"
+  fi
 
   # Print the user name
   echo "User $1 created for host ${config[USER_HOST]}"
 
-  # Grant privileges
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "GRANT ALL PRIVILEGES ON \`$1\_%\`.* TO '$1'@'${config[USER_HOST]}';"
+  # If database password is empty
+  # then run mysql command without password
+  if [ -z "${config[DB_PASSWORD]}" ]; then
+    # Grant privileges
+    mysql -u ${config[DB_USERNAME]} -e "GRANT ALL PRIVILEGES ON \`$1\_%\`.* TO '$1'@'${config[USER_HOST]}';"
+  else 
+    # Grant privileges
+    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "GRANT ALL PRIVILEGES ON \`$1\_%\`.* TO '$1'@'${config[USER_HOST]}';"
+  fi
 
   # Print the privileges
   echo "Privileges granted for $1\_%.* on host ${config[USER_HOST]}"
 
-  # Create the database
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "CREATE DATABASE IF NOT EXISTS $1_${config[DB_NAME]};"
+  # If database password is empty
+  # then run mysql command without password
+  if [ -z "${config[DB_PASSWORD]}" ]; then
+    # Create the database
+    mysql -u ${config[DB_USERNAME]} -e "CREATE DATABASE IF NOT EXISTS $1_${config[DB_NAME]};"
+  else 
+    # Create the database
+    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "CREATE DATABASE IF NOT EXISTS $1_${config[DB_NAME]};"
+  fi
 
   # Print the database name
   echo "Database $1_${config[DB_NAME]} created"
@@ -255,20 +276,28 @@ function create_user_database() {
 # Return:
 # void
 function drop_user_database() {
-  # Drop the database
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP DATABASE IF EXISTS $1_${config[DB_NAME]};"
+  # If database password is empty
+  # then run mysql command without password
+  if [ -z "${config[DB_PASSWORD]}" ]; then
+    # Drop default database with prefix nim
+    mysql -u ${config[DB_USERNAME]} -e "DROP DATABASE IF EXISTS $1_${config[DB_NAME]};"
+  else 
+    # Drop default database with prefix nim
+    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP DATABASE IF EXISTS $1_${config[DB_NAME]};"
+  fi
 
   # Print the database name
   echo "Database $1_${config[DB_NAME]} dropped"
 
-  # Revoke privileges
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "REVOKE ALL PRIVILEGES ON \`$1\_%\`.* FROM '$1'@'${config[USER_HOST]}';"
-
-  # Print the privileges
-  echo "Privileges revoked for \`$1\_%\`.* on host ${config[USER_HOST]}"
-
-  # Drop the user
-  mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP USER IF EXISTS '$1'@'${config[USER_HOST]}';"
+  # If database password is empty
+  # then run mysql command without password
+  if [ -z "${config[DB_PASSWORD]}" ]; then
+    # Drop the user
+    mysql -u ${config[DB_USERNAME]} -e "DROP USER IF EXISTS '$1'@'${config[USER_HOST]}';"
+  else 
+    # Drop the user
+    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "DROP USER IF EXISTS '$1'@'${config[USER_HOST]}';"
+  fi
 
   # Print the user name
   echo "User $1 dropped for host ${config[USER_HOST]}"
@@ -299,8 +328,15 @@ function read_and_loop_file() {
       drop_user_database $nim
     fi
 
-    # Flush privileges
-    mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
+    # If database password is empty
+    # then run mysql command without password
+    if [ -z "${config[DB_PASSWORD]}" ]; then
+      # Flush privileges
+      mysql -u ${config[DB_USERNAME]} -e "FLUSH PRIVILEGES;"
+    else 
+      # Flush privileges
+      mysql -u ${config[DB_USERNAME]} -p${config[DB_PASSWORD]} -e "FLUSH PRIVILEGES;"
+    fi
 
     # Print the flush privileges
     echo "Privileges flushed"
