@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Handle arguments passed to the script
-category=$1
+CATEGORY=$1
 
 # Make function to print the usage
 #
@@ -17,27 +17,27 @@ function print_usage() {
 }
 
 # Check if the category is empty
-if [ -z "$category" ]; then
+if [ -z "$CATEGORY" ]; then
   print_usage
   echo "Program exited"
   exit 1
 fi
 
 # Check if the category is not up or down
-if [ "$category" != "up" ] && [ "$category" != "down" ]; then
+if [ "$CATEGORY" != "up" ] && [ "$CATEGORY" != "down" ]; then
   print_usage
   echo "Program exited"
   exit 1
 fi
 
 # Init variable to store file path
-file_path="data"
+FILE_PATH="data"
 
 # Init variable to store output path
-output_path="output"
+OUTPUT_PATH="output"
 
 # Init variable to store salt path
-salt_path="salt"
+SALT_PATH="salt"
 
 # Init array to store configuration
 typeset -A config
@@ -74,26 +74,26 @@ done < generate.conf
 
 # Check if there is any file exists with the pattern
 # from file_path variable and target_file variable
-if [ "$category" == "up" ] && [ ! -f "$file_path/${config[TARGET_FILE]}" ]; then
-  echo "File $file_path/${config[TARGET_FILE]} not found"
+if [ "$CATEGORY" == "up" ] && [ ! -f "$FILE_PATH/${config[TARGET_FILE]}" ]; then
+  echo "File $FILE_PATH/${config[TARGET_FILE]} not found"
   exit 1
 fi
 
 # Check if the output file is exists
 # if exists then remove the file inside the folder
 # but only remove when category is up
-if [ "$category" == "up" ] && [ -f "$output_path/${config[TARGET_FILE]}" ]; then
+if [ "$CATEGORY" == "up" ] && [ -f "$OUTPUT_PATH/${config[TARGET_FILE]}" ]; then
   # Print the message that we are deleting the file
-  echo "Deleting file $output_path/${config[TARGET_FILE]}"
+  echo "Deleting file $OUTPUT_PATH/${config[TARGET_FILE]}"
 
   # Remove the file in try catch block
-  rm $output_path/${config[TARGET_FILE]} || {
-    echo "Failed to delete file $output_path/${config[TARGET_FILE]}"
+  rm $OUTPUT_PATH/${config[TARGET_FILE]} || {
+    echo "Failed to delete file $OUTPUT_PATH/${config[TARGET_FILE]}"
     exit 1
   }
 
   # Print the message if the file is deleted
-  echo "File $output_path/${config[TARGET_FILE]} deleted"
+  echo "File $OUTPUT_PATH/${config[TARGET_FILE]} deleted"
 fi
 
 declare -a word_data
@@ -118,8 +118,8 @@ function load_salt_folder() {
     exit 1
   fi
 
-  if [ ! -f $salt_path/word.txt ]; then
-    echo "Word file on path $salt_path/word.txt not found"
+  if [ ! -f $SALT_PATH/word.txt ]; then
+    echo "Word file on path $SALT_PATH/word.txt not found"
     exit 1
   fi
 
@@ -128,15 +128,15 @@ function load_salt_folder() {
   while IFS= read -r line; do
     word_data[$index]=$line
     index=$((index+1))
-  done < $salt_path/word.txt
+  done < $SALT_PATH/word.txt
 
   word_data_length=$index
 }
 
 # Load the salt folder
 # only when the category is up
-if [ "$category" == "up" ]; then
-  load_salt_folder $salt_path
+if [ "$CATEGORY" == "up" ]; then
+  load_salt_folder $SALT_PATH
 fi
 
 # Make function to make output file
@@ -161,7 +161,7 @@ function make_output_file() {
   local password=$2
 
   # Write the output to the file
-  echo "$nim | $password" >> $output_path/${config[TARGET_FILE]}
+  echo "$nim | $password" >> $OUTPUT_PATH/${config[TARGET_FILE]}
 }
 
 # Make function to generate random password
@@ -310,8 +310,8 @@ function drop_user_database() {
 # void
 function read_and_loop_file() {
   # Check if the file is empty
-  if [ ! -s $file_path/${config[TARGET_FILE]} ]; then
-    echo "File $file_path/${config[TARGET_FILE]} is empty"
+  if [ ! -s $FILE_PATH/${config[TARGET_FILE]} ]; then
+    echo "File $FILE_PATH/${config[TARGET_FILE]} is empty"
     continue
   fi
 
@@ -319,12 +319,15 @@ function read_and_loop_file() {
   while IFS= read -r line; do
     local nim=$(echo $line | cut -d ' ' -f 1)
 
+    # Print separator
+    echo "======================================="
+
     # Check category data
     # if category is up then create user and database
     # if category is down then drop user and database
-    if [ "$category" == "up" ]; then
+    if [ "$CATEGORY" == "up" ]; then
       create_user_database $nim
-    elif [ "$category" == "down" ]; then
+    elif [ "$CATEGORY" == "down" ]; then
       drop_user_database $nim
     fi
 
@@ -340,15 +343,25 @@ function read_and_loop_file() {
 
     # Print the flush privileges
     echo "Privileges flushed"
-  done < $file_path/${config[TARGET_FILE]}
+
+    # Print separator
+    echo "======================================="
+
+    # Print the message that we are sleeping
+    echo "Sleeping for 1 second"
+
+    # Do sleep for 1 second
+    # to prevent lack of resources
+    sleep 1
+  done < $FILE_PATH/${config[TARGET_FILE]}
 }
 
 # Call the function to read and loop the file
 read_and_loop_file
 
 # Print the completion message
-if [ "$category" == "up" ]; then
+if [ "$CATEGORY" == "up" ]; then
   echo "All users and databases created"
-elif [ "$category" == "down" ]; then
+elif [ "$CATEGORY" == "down" ]; then
   echo "All users and databases dropped"
 fi
